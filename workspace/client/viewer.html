@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en" ng-app>
+
+<head>
+    <title>PP VIEWER</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/bootstrap-responsive.min.css">
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/angular.min.js"></script>
+
+    <script>
+        /*global io*/
+        /*global $*/
+
+        $(document).ready(function() {
+
+            var cols = 6;
+            var rows = 6;
+
+            //var currentTime;
+
+            function isFullScreen() {
+                return (document.fullScreenElement && document.fullScreenElement !== null) || document.mozFullScreen || document.webkitIsFullScreen;
+            }
+
+            function requestFullScreen(element) {
+                if (element.requestFullscreen)
+                    element.requestFullscreen();
+                else if (element.msRequestFullscreen)
+                    element.msRequestFullscreen();
+                else if (element.mozRequestFullScreen)
+                    element.mozRequestFullScreen();
+                else if (element.webkitRequestFullscreen)
+                    element.webkitRequestFullscreen();
+            }
+
+            function exitFullScreen() {
+                if (document.exitFullscreen)
+                    document.exitFullscreen();
+                else if (document.msExitFullscreen)
+                    document.msExitFullscreen();
+                else if (document.mozCancelFullScreen)
+                    document.mozCancelFullScreen();
+                else if (document.webkitExitFullscreen)
+                    document.webkitExitFullscreen();
+            }
+
+            function toggleFullScreen(element) {
+                if (isFullScreen()) {
+                    exitFullScreen();
+                }
+                else {
+                    requestFullScreen(element || document.documentElement);
+                }
+            }
+
+            var video = document.querySelector("#vid");
+            var canvas = document.querySelector('#canvas');
+            canvas.width = 480;
+            canvas.height = 480;
+            var ctx = canvas.getContext('2d');
+
+            window.onkeydown = function(e) {
+                if (e.key == 'f') toggleFullScreen(canvas);
+            };
+
+            var image = new Image();
+
+            var tiles = [];
+
+            function createTiles(cols, rows) {
+
+                tiles = [];
+
+                var ww = 480 / cols;
+                var hh = 480 / rows;
+
+                var tile = null;
+                for (var i = 0; i < cols; i++) {
+                    for (var j = 0; j < rows; j++) {
+
+                        tile = {};
+                        tile.time = Date.now();
+                        tile.visible = true;
+                        tile.locked = false;
+                        tile.x = i * ww;
+                        tile.y = j * hh;
+                        tile.w = ww;
+                        tile.h = ww;
+                        tile.dx = Math.random() * 400 + 6666;
+                        tile.dy = Math.random() * 400 + 6666;
+
+                        if (Math.random() > .9) {
+                            tile.dx = i * ww;
+                            tile.dy = j * hh;
+                            tile.locked = true;
+                        }
+
+                        // if ( (i==0) || (j==0) || (i==(cols-1)) || (j==(rows-1)) ) {
+                        //   tile.locked=true;
+                        //   tile.dx=i*ww;
+                        //   tile.dy=j*hh;
+                        // }
+
+                        tile.dw = ww;
+                        tile.dh = hh;
+                        tiles.push(tile);
+                    }
+                }
+            }
+
+            function snapImage() {
+                image = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream"); // here is the most important part because if you dont replace you will get a DOM 18 exception.
+                document.querySelector('#myimage').src = image;
+            }
+
+            function isFullScreen() {
+                return (document.fullScreenElement && document.fullScreenElement !== null) || document.mozFullScreen || document.webkitIsFullScreen;
+            }
+
+            function requestFullScreen(element) {
+                if (element.requestFullscreen)
+                    element.requestFullscreen();
+                else if (element.msRequestFullscreen)
+                    element.msRequestFullscreen();
+                else if (element.mozRequestFullScreen)
+                    element.mozRequestFullScreen();
+                else if (element.webkitRequestFullscreen)
+                    element.webkitRequestFullscreen();
+            }
+
+            function exitFullScreen() {
+                if (document.exitFullscreen)
+                    document.exitFullscreen();
+                else if (document.msExitFullscreen)
+                    document.msExitFullscreen();
+                else if (document.mozCancelFullScreen)
+                    document.mozCancelFullScreen();
+                else if (document.webkitExitFullscreen)
+                    document.webkitExitFullscreen();
+            }
+
+            function toggleFullScreen(element) {
+                if (isFullScreen()) {
+                    exitFullScreen();
+                }
+                else {
+                    requestFullScreen(element || document.documentElement);
+                }
+            }
+
+            // function startGameLoop() {
+            //     window.requestAnimationFrame(gameLoop);
+            // }
+
+            var localMediaStream = null;
+
+            var onCameraFail = function(e) {
+                /*global Image*/
+                //console.log('Camera did not work.', e);
+                video = new Image();
+                video.src = "./img/default.png";
+            };
+
+            function gameLoop() {
+
+                ctx.clearRect(0, 0, 480, 480);
+                animateTiles();
+                window.requestAnimationFrame(gameLoop);
+
+                // snapImage();
+
+            }
+
+            function animateTiles() {
+
+                var currentTime = Date.now();
+
+                for (var i = 0; i < tiles.length; i++) {
+
+                    var theTile = tiles[i];
+                    
+                    if ((currentTime-theTile.time)>15000) {
+                        tiles[i].time=Date.now();
+                        if (tiles[i].player!="") {
+                            socket.emit("DROP_PIECE",i);
+                            console.log('drop piece' + i);
+                        }
+                    }
+
+                    // if ((currentTime-theTile.time)>1000) theTile.y++;
+
+                    if (theTile.visible) {
+                        //ctx.drawImage(video,theTile.x,theTile.y,theTile.w,theTile.h,theTile.dx,theTile.dy,theTile.dw-1,theTile.dh-1);
+                        if (theTile.locked) {
+                            ctx.drawImage(video, theTile.x, theTile.y, theTile.w, theTile.h, theTile.dx, theTile.dy, theTile.dw - 1, theTile.dh - 1);
+                             ctx.strokeStyle='red';
+                             ctx.strokeRect(theTile.x,theTile.y,theTile.w,theTile.h,theTile.dx,theTile.dy,theTile.dw-1,theTile.dh-1);
+                        }
+                        else {
+                            //ctx.strokeStyle='green';
+                            //ctx.strokeRect(theTile.x,theTile.y,theTile.w,theTile.h,theTile.dx,theTile.dy,theTile.dw-1,theTile.dh-1);
+                        }
+                    }
+                }
+
+                for (i = 0; i < tiles.length; i++) {
+
+                    theTile = tiles[i];
+
+                    if (theTile.visible) {
+                        //ctx.drawImage(video,theTile.x,theTile.y,theTile.w,theTile.h,theTile.dx,theTile.dy,theTile.dw-1,theTile.dh-1);
+                        if (theTile.locked) {
+                            //ctx.strokeStyle='red';
+                            //ctx.strokeRect(theTile.x,theTile.y,theTile.w,theTile.h,theTile.dx,theTile.dy,theTile.dw-1,theTile.dh-1);
+                        }
+                        else {
+                            ctx.drawImage(video, theTile.x, theTile.y, theTile.w, theTile.h, theTile.dx, theTile.dy, theTile.dw - 1, theTile.dh - 1);
+                            ctx.strokeStyle = 'green';
+                            ctx.strokeRect(theTile.x, theTile.y, theTile.w, theTile.h, theTile.dx, theTile.dy, theTile.dw - 1, theTile.dh - 1);
+                        }
+                    }
+                }
+
+            }
+
+            /*global navigator*/
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+            window.URL = window.URL || window.webkitURL;
+            navigator.getUserMedia({
+                video: true
+            }, function(stream) {
+                video.src = window.URL.createObjectURL(stream);
+                localMediaStream = stream;
+            }, onCameraFail);
+
+            function distance(a, b, c, d) {
+                var resultValue = Math.sqrt((Math.abs(a - c) ^ 2) + (Math.abs(b - d) ^ 2));
+                return resultValue;
+            }
+
+            function newpuzzle() {
+                if (socket) socket.emit("NEW_PUZZLE");
+                createTiles(cols, rows);
+            }
+
+            //autostart
+            window.requestAnimationFrame(gameLoop);
+
+            var connectstring = "https://" + window.location.host + ":8000";
+            if (window.location.host.search("hackriddledsc") > -1) connectstring = ""; // this means if on dev server use blank connection string
+
+            var socket = io.connect(connectstring);
+
+            socket.on('MOVE_PLAYER', function(data) {
+
+                //console.log("move player:" +JSON.stringify(data));
+
+                var ind = data.index;
+
+                if (!tiles[ind]) return;
+
+                var newX = data.x * 480;
+                var newY = data.y * 480;
+
+                if (tiles[ind].locked) return;
+                
+                tiles[ind].time=Date.now();
+
+                tiles[ind].dx = newX;
+                tiles[ind].dy = newY;
+
+                if (distance(tiles[ind].dx, tiles[ind].dy, tiles[ind].x, tiles[ind].y) < 5) {
+                    tiles[ind].locked = true;
+                    tiles[ind].dx = tiles[ind].x;
+                    tiles[ind].dy = tiles[ind].y;
+                    //todo tell server this piece is locked
+                    socket.emit("LOCK_PIECE", ind);
+                }
+
+            });
+            
+
+            socket.on('PLAYER_DATA', function(data) {
+                //$('#output').append("PLAYER logged in " + JSON.stringify(data));
+                tiles[data.piece].player=data.player;
+            });            
+
+            socket.on('PLAYER', function(data) {
+                //$('#output').append("PLAYER logged in " + JSON.stringify(data));
+                console.log("PLAYER logged in " + JSON.stringify(data));
+            });
+
+            socket.on('connect', function() {
+
+                //console.log("connected");
+
+                socket.emit("VIEWER_LOGON", Date.now());
+
+            });
+
+            socket.on('move', function(data) {
+                //console.log(data.index);
+                tiles[data.index].dx = data.dx;
+                tiles[data.index].dy = data.dy;
+            });
+
+
+
+            $('#myimage').click(function(e) {
+                newpuzzle();
+            });
+
+            createTiles(6, 6);
+
+        });
+    </script>
+</head>
+
+<body>
+
+    <canvas id="canvas" width="480px" height="480px" style="border:1px solid #d3d3d3;"></canvas><br />
+
+    <table>
+        <tr>
+            <td width="25%">
+                <image src="./img/pp.png" id="myimage" width="400px" height="400px" />
+            </td>
+            <td>
+                
+        ## Inspiration MLH's slogan, learn, build, share. To create a game where everyone can work together, not against one another. ## What it does Uses the video feed from the computers camera or an external camera to create a puzzle that multiple users can
+        solve together in real time using either mobile or pc.
+        </br>## How we built it JavaScript!. We used java script, node, and html to build a server that interacts with a viewer client and player clients.
+        </br>## Challenges we ran into unifying mouse and touch was difficult.
+        </br>## Accomplishments that we're proud of unique concept that brings the world together in real time, just as our development in cloud 9 allowed for real time collaborative effort.
+        </br>## What we learned methods for passing & storing information between a server and multiple clients. Cross platform support for all devices.
+        </br>## What's next for publicpuzzle an educational experience where similarly students interact in real time quiz style where everyone learns from one another. Use the client server baseline to create more public puzzles. Offer it as an architecture
+        to create their own real time interactive experiences.
+                
+    </video>
+            </td>
+        </tr>
+    </table>
+
+    <div id="stuff" style="position:absolute;font:18pt verdana;left:500px;top:0px;">
+
+                <video autoplay id="vid" style="width:480px;height:480px;">
+    </div>
+ 
+
+</body>
+
+</html>

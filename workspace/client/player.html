@@ -1,0 +1,188 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <title>PP PLAYER</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/jquery.min.js"></script>
+  <link rel="stylesheet" href="./css/default.css">
+
+  <script>
+  
+    $(document).ready(function() {
+      
+function isFullScreen() {
+    return (document.fullScreenElement && document.fullScreenElement !== null) || document.mozFullScreen || document.webkitIsFullScreen;
+}
+
+function requestFullScreen(element) {
+    if (element.requestFullscreen)
+        element.requestFullscreen();
+    else if (element.msRequestFullscreen)
+        element.msRequestFullscreen();
+    else if (element.mozRequestFullScreen)
+        element.mozRequestFullScreen();
+    else if (element.webkitRequestFullscreen)
+        element.webkitRequestFullscreen();
+}
+
+function exitFullScreen() {
+    if (document.exitFullscreen)
+        document.exitFullscreen();
+    else if (document.msExitFullscreen)
+        document.msExitFullscreen();
+    else if (document.mozCancelFullScreen)
+        document.mozCancelFullScreen();
+    else if (document.webkitExitFullscreen)
+        document.webkitExitFullscreen();
+}
+
+function toggleFullScreen(element) {
+    if (isFullScreen()) {
+        exitFullScreen();
+    } else {
+        requestFullScreen(element || document.documentElement);
+    }
+}       
+
+      var canvas = document.getElementById('myCanvas');
+      var ctx = canvas.getContext('2d');
+      var myIndex = -1;
+      var myName = Math.random()*99999+ "." + Math.random()*99999;
+      
+      var socket = io.connect(); //alert('hi');
+
+      function resizewin() {
+        if (canvas) {
+          canvas.width = window.innerWidth - window.innerWidth/8;
+          canvas.height = window.innerHeight - window.innerHeight/8;
+        }
+        ctx.beginPath();
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "black";
+        ctx.fill();
+      }
+
+      window.addEventListener('resize', resizewin, false);
+
+      var username = createUserName();
+
+      function createUserName() {
+        username = Math.random() * 50;
+      }
+
+      function startGame() {
+
+        socket.emit("LOGON", {
+          'user': myName,
+        });
+        
+      }
+
+      startGame();
+
+      resizewin();
+
+      var getPointerEvent = function(event) {
+        return event.originalEvent.targetTouches ? event.originalEvent.targetTouches[0] : event;
+      };
+      
+      var $touchArea = $('#myCanvas'),
+      
+        touchStarted = false, // detect if a touch event is sarted
+        currX = 0,
+        currY = 0,
+        cachedX = 0,
+        cachedY = 0;
+
+      //setting the events listeners
+      $touchArea.on('touchstart mousedown', function(e) {
+        e.preventDefault();
+        var pointer = getPointerEvent(e);
+        // caching the current x
+        cachedX = currX = pointer.pageX;
+        // caching the current y
+        cachedY = currY = pointer.pageY;
+        // a touch event is detected      
+        touchStarted = true;
+        $touchArea.text('Touchstarted');
+        // detecting if after 200ms the finger is still in the same position
+        setTimeout(function() {
+          if ((cachedX === currX) && !touchStarted && (cachedY === currY)) {
+            // Here you get the Tap event
+            $touchArea.text('Tap');
+          }
+        }, 200);
+      });
+      
+      $touchArea.on('touchend mouseup touchcancel', function(e) {
+        e.preventDefault();
+        // here we can consider finished the touch event
+        touchStarted = false;
+        $touchArea.text('Touchended');
+      });
+      
+      $touchArea.on('touchmove mousemove', function(e) {
+        e.preventDefault();
+        var pointer = getPointerEvent(e);
+        currX = pointer.pageX - $('#myCanvas').offset().left;
+        currY = pointer.pageY - $('#myCanvas').offset().top;
+        $('#newPiece').val('New Picture Puzzle Piece');
+        playerMove(currX / canvas.width, currY / canvas.height, myIndex);
+        if (touchStarted) {
+          // here you are swiping
+          $touchArea.text('Swiping');
+        }
+      });
+
+      /*global io*/
+      /*global $*/
+      
+    $('#newPiece').click(function(e) {
+    //requestFullScreen(document.getElementById('body'));
+      $('#newPiece').val("Touch/Move Below");
+        socket.emit('NEW_PIECE', { 'player': myName, 'index': myIndex });
+    });
+
+      function playerMove(x, y, i) {
+        if (i<0) return;
+          socket.emit("PLAYER_MOVE", {
+            'x': x,
+            'y': y,
+            'index': i
+          });
+      }
+
+      socket.on('connect', function() {
+        
+        socket.emit("LOGON", {
+          'player': 'Player ' + myName
+        });
+
+      });
+      
+      socket.on('PLAYER_PIECE', function(data) {
+        myIndex=data;
+        console.log(myName + "," + myIndex);
+      });      
+
+    });
+  </script>
+
+</head>
+
+<body id='body' style="background:blue;">
+    
+    <input type="button" id="newPiece" name="newPiece" value= "New Picture Puzzle Piece" />
+    
+    <div id = "canvasWrap" class = "padding: 0cm 2cm">
+      <canvas id="myCanvas"  style=" border:10px solid #d3d3d3;"></canvas>
+    </div>
+    
+</body>
+
+</html>

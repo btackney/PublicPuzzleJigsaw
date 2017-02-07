@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" ng-app>
+  <head>
+    <title>publicpuzzle.com</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/bootstrap-responsive.min.css">
+       
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/angular.min.js"></script>
+    
+     <style>
+
+      a {
+        font:28pt verdana;
+        text-align:center;
+      }
+    </style>
+    <script>
+
+var connectstring = "https://" + window.location.host + ":8000";
+if (window.location.host.search("c9users") > -1) connectstring = ""; // this means if on dev server use blank connection string
+
+var socket = io.connect(connectstring);
+    </script>
+  </head>
+  
+  <body>
+    
+    <img src="./img/pp.png" width="200px" height="200px" /><br />
+
+    <a href="player.html" target="_self"><span style="color:green;">Player</span></a> 
+    
+    <a href="viewer.html" target="_blank"><span style="color:blue;">Viewer</span></a><br />
+    
+    <p>Welcome to publicpuzzle  <br /><br />This is a multiplayer puzzle game which uses a public display to engage the public in real-time.
+    </br>Made by Brendan Tackney and Sheldon Pasciak</p>
+    
+    <p>A player simply navigates to PUBLICPUZZLE.COM where the world can ... </p><img src="./img/default.png"/>...Together!<br /><br />
+
+  </body>
+  
+</html>
